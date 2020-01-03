@@ -8,30 +8,36 @@ mass = 1.
 inertia_mat = np.matrix([[mass / 6, 0, 0], [0, mass / 6, 0], [0, 0, mass / 6]])
 
 position = np.zeros((3))
-# velocity = np.zeros((3))
-velocity = np.array([10., 5., 30.])
+velocity = np.zeros((3))
+# velocity = np.array([10., 5., 30.])
 
 orientation = np.quaternion(1, 0, 0, 0)
-# omega = np.zeros((3))
-omega = np.array([1., 0., -0.2])
-
-def apply_forces():
-    gravity = np.array([0., 0., -9.81])
-    push = np.array([0.2, 0.1, 0.])
-    force = gravity + push
-    torque = np.cross(push, np.array([0, 0, -0.5]))
-    return force, torque
+omega = np.zeros((3))
+# omega = np.array([1., 0., -0.2])
 
 t = 0
 t_end = 10
 dt = 1/100
 
-p = np.zeros((int(t_end / dt), 3))
-o = np.zeros((int(t_end / dt), 3))
+num_steps = round(t_end / dt) + 1
+cs = lambda: round(t / dt)
+
+position_hist = np.zeros((num_steps, 3))
+orientation_hist = np.empty((num_steps), dtype=np.quaternion)
+force_hist = np.zeros((num_steps, 3))
+
+def apply_forces():
+    gravity = np.array([0., 0., -9.81])
+    # push = np.array([0.2, 0.1, 0.])
+    push = np.array([np.cos(t / 100) / 10, np.sin(t / 100) / 10, 0.])
+    force_hist[cs()] = push
+    force = gravity + push
+    torque = np.cross(push, np.array([0, 0, -0.5]))
+    return force, torque
 
 while t <= t_end:
-    p[int(t / dt)] = position
-    o[int(t / dt)] = quaternion.rotate_vectors(orientation, np.array([0, 0, 1]))
+    position_hist[cs()] = position
+    orientation_hist[cs()] = orientation
     force, torque = apply_forces()
     velocity += force / mass * dt
     position += velocity * dt
@@ -66,8 +72,13 @@ text(pos=xaxis.pos + k * xaxis.axis, text='x', height=h, align='center', billboa
 text(pos=yaxis.pos + k * yaxis.axis, text='y', height=h, align='center', billboard=True, color=color.black)
 text(pos=zaxis.pos + k * zaxis.axis, text='z', height=h, align='center', billboard=True, color=color.black)
 b = box(pos = vector(0, 0, 0), size=vector(4, 4, 4), color=color.blue, make_trail=True)
-for pos, rot in zip(p, o):
-    b.pos = vector(*pos)
-    b.up = vector(*rot)
+v = arrow(pos=vector(0, 0, -0.5))
+for pos, rot, force in zip(position_hist, orientation_hist, force_hist):
     print(rot)
+    up = quaternion.rotate_vectors(rot, np.array([0, 0, 1]))
+    print(up)
+    print(-up)
+    b.pos = vector(*pos)
+    b.up = vector(*up)
+    v.pos = vector(*-up)
     sleep(0.0001)

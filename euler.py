@@ -29,7 +29,7 @@ force_hist = np.zeros((num_steps, 3))
 def apply_forces():
     gravity = np.array([0., 0., -9.81])
     # push = np.array([0.2, 0.1, 0.])
-    push = np.array([np.cos(t / 100) / 10, np.sin(t / 100) / 10, 0.])
+    push = np.array([np.cos(20 * t), np.sin(20 * t), 9.81]) # issue: push force is applied linearly no matter the orientation
     force_hist[cs()] = push
     force = gravity + push
     torque = np.cross(push, np.array([0, 0, -0.5]))
@@ -63,22 +63,28 @@ plt.show()
 scene = canvas(background=color.white, width=1920, height=1080)
 scene.up = vector(0, 0, 1)
 scene.forward = vector(1,0,0)
-xaxis = cylinder(pos=vec(0,0,0), axis=vec(100,0,0), radius=0.5, color=color.red)
-yaxis = cylinder(pos=vec(0,0,0), axis=vec(0,100,0), radius=0.5, color=color.green)
-zaxis = cylinder(pos=vec(0,0,0), axis=vec(0,0,100), radius=0.5, color=color.blue)
+xaxis = cylinder(pos=vec(0,0,0), axis=vec(20,0,0), radius=0.2, color=color.red)
+yaxis = cylinder(pos=vec(0,0,0), axis=vec(0,20,0), radius=0.2, color=color.green)
+zaxis = cylinder(pos=vec(0,0,0), axis=vec(0,0,20), radius=0.2, color=color.blue)
 k = 1.02
-h = 5
+h = 1
 text(pos=xaxis.pos + k * xaxis.axis, text='x', height=h, align='center', billboard=True, color=color.black)
 text(pos=yaxis.pos + k * yaxis.axis, text='y', height=h, align='center', billboard=True, color=color.black)
 text(pos=zaxis.pos + k * zaxis.axis, text='z', height=h, align='center', billboard=True, color=color.black)
-b = box(pos = vector(0, 0, 0), size=vector(4, 4, 4), color=color.blue, make_trail=True)
-v = arrow(pos=vector(0, 0, -0.5))
+b = box(pos = vector(0, 0, 0), size=vector(1, 1, 1), color=color.blue, make_trail=True)
+scene.camera.follow(b)
+v = arrow(pos=vector(0, 0, 0), color=color.yellow)
 for pos, rot, force in zip(position_hist, orientation_hist, force_hist):
-    print(rot)
+    # print(rot)
     up = quaternion.rotate_vectors(rot, np.array([0, 0, 1]))
-    print(up)
-    print(-up)
+
     b.pos = vector(*pos)
     b.up = vector(*up)
-    v.pos = vector(*-up)
+
+    thrust_dir = quaternion.rotate_vectors(rot, np.array([0, 0, -0.5]))
+    thrust = quaternion.rotate_vectors(rot, force)
+
+    v.pos = vector(*(pos + thrust_dir))
+    # v.up = vector(*up)
+    v.axis = vector(*-thrust)
     sleep(0.0001)

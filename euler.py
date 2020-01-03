@@ -27,14 +27,16 @@ position_hist = np.zeros((num_steps, 3))
 orientation_hist = np.empty((num_steps), dtype=np.quaternion)
 thrust_hist = np.zeros((num_steps, 3))
 
-def apply_forces():
-    thrust = np.array([-np.cos(10 * t), 0., 10.]) # issue: push force is applied linearly no matter the orientation
-    thrust_hist[cs()] = thrust
-    force = np.array([0, 0, -9.81]) + quaternion.rotate_vectors(orientation, thrust) # solution: rotate linear force vector with body
+def control_alg(): # reducing accuracy of provided data (adding noise to simulate IMU noise)
+    return np.array([-np.cos(10 * t), 0., 10.])
+
+def apply_forces(): # additional forces: drag (shear stress, friction torque), wind
+    thrust = thrust_hist[cs()] = control_alg()
+    force = np.array([0, 0, -9.81]) + quaternion.rotate_vectors(orientation, thrust)
     torque = np.cross(thrust, thrust_origin)
     return force, torque
 
-while t <= t_end:
+while t <= t_end: # implement ground collision for take-off/landing simulations
     position_hist[cs()] = position
     orientation_hist[cs()] = orientation
     force, torque = apply_forces()

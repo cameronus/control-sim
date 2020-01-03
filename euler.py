@@ -28,12 +28,13 @@ orientation_hist = np.empty((num_steps), dtype=np.quaternion)
 thrust_hist = np.zeros((num_steps, 3))
 
 def control_alg(): # reducing accuracy of provided data (adding noise to simulate IMU noise)
-    return np.array([-np.cos(10 * t), 0., 10.])
+    return np.array([-5 * np.cos(5 * t), 0., 10.])
 
 def apply_forces(): # additional forces: drag (shear stress, friction torque), wind
-    thrust = thrust_hist[cs()] = control_alg()
-    force = np.array([0, 0, -9.81]) + quaternion.rotate_vectors(orientation, thrust)
-    torque = np.cross(thrust, thrust_origin)
+    thrust = control_alg()
+    rot_thrust_force = thrust_hist[cs()] = quaternion.rotate_vectors(orientation, thrust) # BUG: inverted rotation
+    force = np.array([0, 0, -9.81]) + rot_thrust_force
+    torque = np.cross(thrust_origin, thrust) # solution: fixed flipped order for cross product
     return force, torque
 
 while t <= t_end: # implement ground collision for take-off/landing simulations
@@ -73,12 +74,15 @@ text(pos=zaxis.pos + 1.02 * zaxis.axis, text='z', height=1, align='center', bill
 b = box(pos = vector(0, 0, 0), size=vector(1, 1, 1), color=color.blue, make_trail=True) # trail_type='points', interval=10
 scene.camera.follow(b)
 v = arrow(pos=vector(0, 0, 0), color=color.yellow)
+vv = arrow(pos=vector(0, 0, 0), color=color.purple)
 for pos, rot, thrust_force in zip(position_hist, orientation_hist, thrust_hist):
     up = quaternion.rotate_vectors(rot, np.array([0, 0, 1]))
     b.pos = vector(*pos)
     b.up = vector(*up)
     v.pos = vector(*(pos + quaternion.rotate_vectors(rot, thrust_origin)))
     # v.up = vector(*up)
-    rotated_thrust = quaternion.rotate_vectors(rot, thrust_force)
-    v.axis = vector(*-rotated_thrust / np.linalg.norm(rotated_thrust))
+    v.axis = vector(*-thrust_force / np.linalg.norm(thrust_force) * 3)
+
+    vv.pos = vector(*(pos + quaternion.rotate_vectors(rot, thrust_origin)))
+    vv.axis = vector(*thrust_force / np.linalg.norm(thrust_force) * 3)
     sleep(0.0001)

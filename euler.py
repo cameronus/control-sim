@@ -32,23 +32,12 @@ o = np.zeros((int(t_end / dt), 3))
 while t <= t_end:
     p[int(t / dt)] = position
     o[int(t / dt)] = quaternion.rotate_vectors(orientation, np.array([0, 0, 1]))
-    # print(f'{"{:5.2f}".format(t)}: p={np.round(position, 3)} o={orientation} v={np.round(velocity, 3)}')
-    # print("{:5.2f}".format(t), quaternion.as_euler_angles(orientation) * 180 / np.pi)
     force, torque = apply_forces()
     velocity += force / mass * dt
     position += velocity * dt
-    # print(orientation)
-    # print(orientation * np.quaternion(0, *omega) * 0.5 * dt)
-    # print(quaternion.rotate_vectors(orientation, np.array([0, 0, 1])))
     orientation += orientation * np.quaternion(0, *omega) * 0.5 * dt
     rot_matrix = quaternion.as_rotation_matrix(orientation)
     rot_inertia_mat = np.asarray(rot_matrix * inertia_mat * np.transpose(rot_matrix))
-    # print(np.matmul(rot_inertia_mat, omega))
-    # print(rot_inertia_mat * omega)
-    # print(rot_inertia_mat)
-    # print(np.asarray(rot_inertia_mat))
-    # print('result\n', np.linalg.inv(rot_inertia_mat) * (torque - np.cross(omega, np.matmul(rot_inertia_mat, omega))) * dt)
-    # print()
     omega += np.matmul(np.linalg.inv(rot_inertia_mat), (torque - np.cross(omega, np.matmul(rot_inertia_mat, omega)))) * dt
     t += dt
 

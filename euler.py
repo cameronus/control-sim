@@ -16,17 +16,33 @@ orientation = np.quaternion(1, 0, 0, 0)
 omega = np.zeros((3))
 # omega = np.array([1., 0., -0.2])
 
-t = 0
-t_end = 10
-dt = 1/100
+
+
+t, t_end = 0, 10
+dt = 1 / 1000
+refresh = 500 # Hz
 
 states = np.zeros((round(t_end / dt) + 1, 16)) # [x, y, z, vx, vy, vz, ow, ox, oy, oz, ωx, ωy, ωz, tx, ty, tz]
 
+
+thrust = np.array([0, 0, 0])
+acceleration = np.array([0, 0, 0])
+
 def control_alg(): # reducing accuracy of provided data (adding noise to simulate IMU noise)
-    return np.array([0., 0., 12.])
+    # available: orientation, angular velocity, acceleration
+    mu, sigma = 0, 0.1
+    noise = np.random.normal(mu, sigma, (3))
+    print(round(t, 4))
+    print(orientation)
+    print(omega)
+    print(acceleration)
+    print()
+    return np.array([0., -0.01, 12.])
 
 def apply_forces(): # additional forces: drag (shear stress, friction torque), wind
-    thrust = control_alg()
+    global thrust
+    if round(t / dt) % (1 / (dt * refresh)) == 0:
+        thrust = control_alg()
     rot_thrust = quaternion.rotate_vectors(orientation, thrust)
 
     wind = np.array([-1, -2.5, 0])
@@ -41,7 +57,8 @@ while t <= t_end: # implement ground collision for take-off/landing simulations
 
     states[round(t / dt)] = np.array([*position, *velocity, *quaternion.as_float_array(orientation), *omega, *rot_thrust])
 
-    velocity += force / mass * dt
+    acceleration = force / mass
+    velocity += acceleration * dt
     position += velocity * dt
 
     orientation += orientation * np.quaternion(0, *omega) * 0.5 * dt
@@ -66,10 +83,13 @@ b = box(pos = vector(0, 0, 0), size=vector(1, 1, 1), color=color.blue, make_trai
 scene.camera.follow(b)
 v = arrow(pos=vector(0, 0, 0), color=color.yellow)
 
+scale_factor = 10
+states = states[::scale_factor]
+
 for i, state in enumerate(states):
     position, velocity, orientation, omega, thrust = np.split(state, [3, 6, 10, 13]) # position, velocity, orientation, angular velocity, thrust
 
-    scene.title = f't={round(i * dt, 2)}s<br>position: {np.array_str(position, precision=3)}<br>velocity: {np.array_str(velocity, precision=3)}'
+    scene.title = f't={round(i * scale_factor * dt, 2)}s<br>position: {np.array_str(position, precision=3)}<br>velocity: {np.array_str(velocity, precision=3)}'
 
     orientation = quaternion.from_float_array(orientation)
     up = quaternion.rotate_vectors(orientation, np.array([0, 0, 1]))
@@ -78,4 +98,4 @@ for i, state in enumerate(states):
     v.pos = vector(*(position + quaternion.rotate_vectors(orientation, thrust_origin)))
     v.axis = vector(*-thrust / np.linalg.norm(thrust) * 2)
     # v.up = vector(*up)
-    sleep(0.00001)
+    sleep(0.000001)

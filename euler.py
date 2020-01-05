@@ -26,9 +26,8 @@ states = np.zeros((round(t_end / dt) + 1, 16)) # [x, y, z, vx, vy, vz, ow, ox, o
 
 
 thrust = np.array([0, 0, 0])
-acceleration = np.array([0, 0, 0])
 
-def control_alg(): # reducing accuracy of provided data (adding noise to simulate IMU noise)
+def control_alg(acceleration): # reducing accuracy of provided data (adding noise to simulate IMU noise)
     # available: orientation, angular velocity, acceleration
     mu, sigma = 0, 0.1
     noise = np.random.normal(mu, sigma, (3))
@@ -39,26 +38,24 @@ def control_alg(): # reducing accuracy of provided data (adding noise to simulat
     print()
     return np.array([0., -0.01, 12.])
 
-def apply_forces(): # additional forces: drag (shear stress, friction torque), wind
-    global thrust
-    if round(t / dt) % (1 / (dt * refresh)) == 0:
-        thrust = control_alg()
-    rot_thrust = quaternion.rotate_vectors(orientation, thrust)
-
-    wind = np.array([-1, -2.5, 0])
+def apply_forces(): # external forces: gravity, drag (shear stress, friction torque), wind
+    wind = np.array([1, 2.5, 0])
     drag = 0.5 * 1.225 * 1 * 1 * (velocity - wind) * np.absolute(velocity - wind) # Fd = 1/2 * ρ * Cd * A * v^2
-
-    force = np.array([0, 0, -9.81]) - drag + rot_thrust
-    torque = np.cross(thrust_origin, thrust)
-    return force, torque, rot_thrust
+    force = np.array([0, 0, -9.81]) - drag
+    return force
 
 while t <= t_end: # implement ground collision for take-off/landing simulations
-    force, torque, rot_thrust = apply_forces()
+    ext_force = apply_forces()
+    if round(t / dt) % (1 / (dt * refresh)) == 0:
+        thrust = control_alg((ext_force + thrust) / mass)
+    rot_thrust = quaternion.rotate_vectors(orientation, thrust)
+
+    force = ext_force + rot_thrust
+    torque = np.cross(thrust_origin, thrust)
 
     states[round(t / dt)] = np.array([*position, *velocity, *quaternion.as_float_array(orientation), *omega, *rot_thrust])
 
-    acceleration = force / mass
-    velocity += acceleration * dt
+    velocity += force / mass * dt
     position += velocity * dt
 
     orientation += orientation * np.quaternion(0, *omega) * 0.5 * dt

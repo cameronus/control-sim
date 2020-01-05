@@ -41,16 +41,14 @@ def control_alg(acceleration): # reducing accuracy of provided data (adding nois
     # print(acceleration)
     # print()
 
-    # compute new ouput from the PID according to the sy
     # rot = quaternion.as_rotation_vector(orientation)
     # rot_mag = np.sqrt(rot[0]**2 + rot[1]**2 + rot[2]**2)
     # control_x = pid_x(rot_mag)
     # control_y = pid_y(rot_mag)
-    control_x = pid_x(quaternion.as_float_array(orientation)[1])
-    control_y = pid_y(quaternion.as_float_array(orientation)[2])
-    # feed the PID output to the system and get its curr
-    # v = controlled_system.update(control)
-    # use a quaternion to control orientation of thrust vector (which is of magnitude edf_force)
+    quat = quaternion.as_float_array(orientation)
+    control_x = pid_x(quat[1])
+    control_y = pid_y(quat[2])
+    # IDEA: use a quaternion to control orientation of thrust vector (which is of magnitude edf_force)
     return np.array([control_x, control_y, np.sqrt(edf_force**2 - control_x**2 - control_y**2)])
 
 def apply_forces(): # external forces: gravity, drag (shear stress, friction torque), wind; TODO: implement torque component of drag

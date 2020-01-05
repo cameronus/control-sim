@@ -15,19 +15,17 @@ velocity = np.zeros((3))
 # velocity = np.array([10., 5., 30.])
 
 # orientation = np.quaternion(1, 0, 0, 0)
-orientation = np.quaternion(1, 0.5, 0.2, 0)
+orientation = np.quaternion(1, -0.9, 0.4, 0)
 omega = np.zeros((3))
 # omega = np.array([1., 0., -0.2])
 
-
-
 t, t_end = 0, 10
-dt = 1 / 1000
+dt = 1 / 4000
 refresh = 500 # Hz
 
 states = np.zeros((round(t_end / dt) + 1, 19)) # [x, y, z, vx, vy, vz, ow, ox, oy, oz, ωx, ωy, ωz, tx, ty, tz]
 
-tuning = 2.5, 0.1, 0.5
+tuning = 3, 0.5, 0.6
 pid_x = PID(*tuning, setpoint=0)
 pid_y = PID(*tuning, setpoint=0)
 thrust = np.array([0, 0, edf_force])
@@ -44,7 +42,7 @@ def control_alg(acceleration): # reducing accuracy of provided data (adding nois
     # print()
 
     # compute new ouput from the PID according to the sy
-    rot = quaternion.as_rotation_vector(orientation)
+    # rot = quaternion.as_rotation_vector(orientation)
     # rot_mag = np.sqrt(rot[0]**2 + rot[1]**2 + rot[2]**2)
     # control_x = pid_x(rot_mag)
     # control_y = pid_y(rot_mag)
@@ -52,23 +50,23 @@ def control_alg(acceleration): # reducing accuracy of provided data (adding nois
     control_y = pid_y(quaternion.as_float_array(orientation)[2])
     # feed the PID output to the system and get its curr
     # v = controlled_system.update(control)
-
-    return np.array([control_x, control_y, edf_force])
+    # use a quaternion to control orientation of thrust vector (which is of magnitude edf_force)
+    return np.array([control_x, control_y, np.sqrt(edf_force**2 - control_x**2 - control_y**2)])
 
 def apply_forces(): # external forces: gravity, drag (shear stress, friction torque), wind; TODO: implement torque component of drag
-    wind = np.array([1, 2.5, 0])
+    wind = np.array([0, 0, 0])
+    # wind = np.array([1, 2.5, 0])
     drag = 0.5 * 1.225 * 1 * 1 * (velocity - wind) * np.absolute(velocity - wind) # Fd = 1/2 * ρ * Cd * A * v^2
     force = np.array([0, 0, -9.81]) - drag
     return force
 
-while t <= t_end: # implement ground collision for take-off/landing simulations
+while round(t, 6) <= t_end: # TODO: fix buggy time rounding, TODO: implement ground collision for take-off/landing simulations
     ext_force = apply_forces()
     if round(t / dt) % (1 / (dt * refresh)) == 0:
         thrust = control_alg((ext_force + thrust) / mass)
     rot_thrust = quaternion.rotate_vectors(orientation, thrust)
 
     force = ext_force + rot_thrust
-    print(t, rot_thrust)
     torque = np.cross(thrust_origin, thrust)
 
     states[round(t / dt)] = np.array([*position, *velocity, *quaternion.as_float_array(orientation), *omega, *thrust, *rot_thrust])
@@ -98,7 +96,7 @@ b = box(pos = vector(0, 0, 0), size=vector(1, 1, 1), color=color.blue, make_trai
 scene.camera.follow(b)
 v = arrow(pos=vector(0, 0, 0), color=color.yellow)
 
-scale_factor = 10
+scale_factor = 40
 states = states[::scale_factor]
 
 sleep(1)
@@ -107,7 +105,7 @@ for i, state in enumerate(states):
     position, velocity, orientation, omega, thrust, rot_thrust = np.split(state, [3, 6, 10, 13, 16]) # position, velocity, orientation, angular velocity, thrust
     orientation = quaternion.from_float_array(orientation)
 
-    scene.title = f't={round(i * scale_factor * dt, 2)}s<br>position: {np.array_str(position, precision=3)}<br>velocity: {np.array_str(velocity, precision=3)}<br>thrust: {np.array_str(thrust, precision=3)}'
+    scene.title = f't={round(i * scale_factor * dt, 2)}s<br>position: {np.array_str(position, precision=3)}<br>velocity: {np.array_str(velocity, precision=3)}<br>orientation: {orientation}<br>thrust: {np.array_str(thrust, precision=3)}'
 
     up = quaternion.rotate_vectors(orientation, np.array([0, 0, 1]))
     b.pos = vector(*position)

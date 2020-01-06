@@ -6,9 +6,6 @@ from mpl_toolkits.mplot3d import Axes3D
 from simple_pid import PID
 from vpython import *
 
-t_sim = 10
-t_step = 1000
-
 mass = 1
 edf_force = 14.4207
 inertia_mat = np.matrix([[mass / 6, 0, 0], [0, mass / 6, 0], [0, 0, mass / 6]])
@@ -37,7 +34,6 @@ def apply_forces(velocity): # external forces: gravity, drag (shear stress, fric
     return force
 
 def sim(t, y):
-    print(t)
     velocity = y[3:6]
     orientation = quaternion.from_float_array(y[6:10])
     omega = y[10:13]
@@ -65,12 +61,27 @@ position0 = np.array([0, 0, 0])
 velocity0 = np.array([7, -15, -20])
 orientation0 = np.array([1, 0, 0, 0])
 omega0 = np.array([0, 0, 0])
-y0 = np.array([*position0, *velocity0, *orientation0, *omega0])
 
-# solution = solve_ivp(sim, (0, t_sim), y0, t_eval=np.linspace(0, t_sim, t_sim * t_step), min_step=1/t_step, max_step=1/t_step)
-solution = odeint(sim, y0, np.linspace(0, t_sim, t_sim * t_step), tfirst=True)
+state = np.array([[*position0, *velocity0, *orientation0, *omega0]])
+states = []
 
-print(solution[-1])
+t = 0
+control_refresh = 1/200
+t_sim = 10
+
+def update():
+    global state
+    global t
+    solution = solve_ivp(sim, (0, control_refresh), state[-1])
+    state = solution.y.T
+    states.append(state)
+    t += control_refresh
+
+while t < t_sim:
+    print('control!')
+    update()
+
+# print(solution[-1])
 # print(solution.y.T[-1])
 
 # fig = plt.figure(figsize=(7, 7))
@@ -95,7 +106,7 @@ v = arrow(pos=vector(0, 0, 0), color=color.yellow)
 
 sleep(0.4)
 
-for i, state in enumerate(solution.y.T):
+for i, state in enumerate(states):
     position, velocity, orientation, omega = np.split(state, [3, 6, 10]) # position, velocity, orientation, angular velocity
     orientation = quaternion.from_float_array(orientation)
 

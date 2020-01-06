@@ -62,24 +62,27 @@ velocity0 = np.array([7, -15, -20])
 orientation0 = np.array([1, 0, 0, 0])
 omega0 = np.array([0, 0, 0])
 
-state = np.array([[*position0, *velocity0, *orientation0, *omega0]])
-states = []
-
 t = 0
-control_refresh = 1/200
+control_refresh = 1/500
 t_sim = 10
+
+state = np.array([*position0, *velocity0, *orientation0, *omega0])
+states = np.zeros((round(t_sim / control_refresh), 13))
 
 def update():
     global state
     global t
-    solution = solve_ivp(sim, (0, control_refresh), state[-1])
-    state = solution.y.T
-    states.append(state)
+    solution = solve_ivp(sim, (0, control_refresh), state)
+    state = solution.y.T[-1]
+    states[round(t / control_refresh)] = state
     t += control_refresh
 
 while t < t_sim:
     print('control!')
     update()
+
+# print(states)
+print(states[-1])
 
 # print(solution[-1])
 # print(solution.y.T[-1])
@@ -105,7 +108,6 @@ scene.camera.follow(b)
 v = arrow(pos=vector(0, 0, 0), color=color.yellow)
 
 sleep(0.4)
-
 for i, state in enumerate(states):
     position, velocity, orientation, omega = np.split(state, [3, 6, 10]) # position, velocity, orientation, angular velocity
     orientation = quaternion.from_float_array(orientation)
@@ -119,3 +121,29 @@ for i, state in enumerate(states):
     # v.up = vector(*up) # TODO: set vector to one perpendicular to the axis in the direction closest to the box
     # v.axis = vector(*-rot_thrust / np.linalg.norm(rot_thrust) * 1.5)
     sleep(0.000001)
+
+"""
+Sample simulation: (parameters consistent)
+
+Separated integration with control refresh of 200 Hz
+[-6.06134090e+00  3.93523367e+01 -1.85370168e+01  4.33912445e+00
+ -8.39124449e-01 -5.39413087e+00 -5.23133894e-01 -6.02632114e-01
+ -6.02632114e-01 -1.01337204e-18 -6.00000000e-01 -6.00000000e-01
+ -8.63963297e-18]
+Splitting integration with a 200 Hz control refresh results in a 0.0164% error from "ground truth" (defined as integrating over the whole time period at once)
+
+Separated integration with control refresh of 500 Hz
+[-6.06134090e+00  3.93523367e+01 -1.85370168e+01  4.33912445e+00
+ -8.39124450e-01 -5.39413087e+00 -5.23133894e-01 -6.02632114e-01
+ -6.02632114e-01  8.16799804e-19 -6.00000000e-01 -6.00000000e-01
+ -1.08475081e-18]
+Same result as with 200 Hz control refresh
+
+One integration
+[-6.06351026e+00  3.93458661e+01 -1.85469274e+01  4.33869401e+00
+ -8.38694008e-01 -5.39122351e+00 -5.23133889e-01 -6.02632096e-01
+ -6.02632096e-01 -8.54667860e-17 -6.00000000e-01 -6.00000000e-01
+ -5.59836606e-17]
+
+All integrations using dynamic timestep RK4
+"""

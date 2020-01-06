@@ -67,11 +67,11 @@ orientation0 = np.array([1, 0, 0, 0])
 omega0 = np.array([0, 0, 0])
 y0 = np.array([*position0, *velocity0, *orientation0, *omega0])
 
-# solution = solve_ivp(sim, (0, t_sim), y0, t_eval=np.linspace(0, t_sim, t_sim * t_step), min_step=1/t_step, max_step=1/t_step)
-solution = odeint(sim, y0, np.linspace(0, t_sim, t_sim * t_step), tfirst=True)
+solution = solve_ivp(sim, (0, t_sim), y0, t_eval=np.linspace(0, t_sim, t_sim * t_step))
+# solution = odeint(sim, y0, np.linspace(0, t_sim, t_sim * t_step), tfirst=True)
 
-print(solution[-1])
-# print(solution.y.T[-1])
+# print(solution[-1])
+print(solution.y.T[-1])
 
 # fig = plt.figure(figsize=(7, 7))
 # ax = fig.add_subplot(111, projection='3d')

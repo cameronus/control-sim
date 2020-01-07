@@ -1,6 +1,7 @@
 import numpy as np
 import quaternion
-from scipy.integrate import solve_ivp, odeint
+from scipy import integrate
+from scipy.spatial.transform import Rotation as R
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from simple_pid import PID
@@ -11,7 +12,7 @@ edf_force = 14.4207
 inertia_mat = np.matrix([[mass / 6, 0, 0], [0, mass / 6, 0], [0, 0, mass / 6]])
 thrust_origin = np.array([0, 0, -0.5])
 
-tuning = 3, 0.5, 0.6
+tuning = 2, .4, .4
 pid_x = PID(*tuning, setpoint=0)
 pid_y = PID(*tuning, setpoint=0)
 thrust = np.array([0, 0, edf_force])
@@ -27,8 +28,8 @@ def control_alg(quat): # reducing accuracy of provided data (adding noise to sim
     return np.array([control_x, control_y, np.sqrt(edf_force**2 - control_x**2 - control_y**2)])
 
 def apply_forces(velocity): # external forces: gravity, drag (shear stress, friction torque), wind; TODO: implement torque component of drag
-    # wind = np.array([0, 0, 0])
-    wind = np.array([1, 2.5, 0])
+    wind = np.array([0, 0, 0])
+    # wind = np.array([1, 2.5, 0])
     drag = 0.5 * 1.225 * 1 * 1 * (velocity - wind) * np.absolute(velocity - wind) # Fd = 1/2 * ρ * Cd * A * v^2
     force = np.array([0, 0, -9.81]) - drag
     return force
@@ -58,12 +59,12 @@ def sim(t, y):
     return ydot
 
 position0 = np.array([0, 0, 0])
-velocity0 = np.array([7, -15, -20])
-orientation0 = np.array([1, 0.25, -0.5, 0])
+velocity0 = np.array([7, -15, 0])
+orientation0 = np.array([1, 0.1, -0.1, 0])
 omega0 = np.array([0, 0, 0])
 
 t = 0
-control_refresh = 1/500
+control_refresh = 1/200
 t_sim = 10
 
 state = np.array([*position0, *velocity0, *orientation0, *omega0])
@@ -72,7 +73,7 @@ states = np.zeros((round(t_sim / control_refresh) + 1, 16))
 def update():
     global state, t, thrust, solution
     thrust = control_alg(state[6:10])
-    solution = solve_ivp(sim, (0, control_refresh), state) # TODO: check diff integration methods
+    solution = integrate.solve_ivp(sim, (0, control_refresh), state) # TODO: check diff integration methods
     state = solution.y.T[-1]
     states[round(t / control_refresh)] = np.array([*state, *thrust])
     t += control_refresh
@@ -109,12 +110,20 @@ scene.camera.follow(b)
 v = arrow(pos=vector(0, 0, 0), color=color.yellow)
 
 sleep(0.4)
-states = states[::10]
+scale_factor = 4
+states = states[::scale_factor]
 for i, state in enumerate(states):
-    position, velocity, orientation, omega, thrust = np.split(state, [3, 6, 10, 13]) # position, velocity, orientation, angular velocity
-    orientation = quaternion.from_float_array(orientation)
+    position, velocity, orientation_float, omega, thrust = np.split(state, [3, 6, 10, 13]) # position, velocity, orientation, angular velocity
+    orientation = quaternion.from_float_array(orientation_float)
     rot_thrust = quaternion.rotate_vectors(orientation, thrust)
-    scene.title = f't={round(i * 10 * control_refresh, 2)}s<br>position: {np.array_str(position, precision=3)}<br>velocity: {np.array_str(velocity, precision=3)}<br>orientation: {orientation}<br>thrust: {np.array_str(thrust, precision=3)}'
+    scene.title = (
+        f't={round(i * scale_factor * control_refresh, 2)}s<br>'
+        f'position: {np.array_str(position, precision=3)}<br>'
+        f'velocity: {np.array_str(velocity, precision=3)}<br>'
+        f'orientation: {orientation}<br>'
+        f'euler: {np.array_str(R.from_quat(orientation_float).as_euler("zyx", degrees=True), precision=0)}<br>'
+        f'thrust: {np.array_str(thrust, precision=3)}'
+    )
 
     up = quaternion.rotate_vectors(orientation, np.array([0, 0, 1]))
     b.pos = vector(*position)
@@ -122,7 +131,8 @@ for i, state in enumerate(states):
     v.pos = vector(*(position + quaternion.rotate_vectors(orientation, thrust_origin)))
     # v.up = vector(*up) # TODO: set vector to one perpendicular to the axis in the direction closest to the box
     v.axis = vector(*-rot_thrust / np.linalg.norm(rot_thrust) * 1.5)
-    sleep(0.000001)
+    # sleep(0.000001)
+    sleep(10)
 
 """
 Sample simulation w/out control: (parameters consistent)

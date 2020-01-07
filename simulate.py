@@ -35,6 +35,9 @@ VELOCITY0 = np.array([0, 0, 0])
 ORIENTATION0 = np.array([1, 0, 0, 0])
 OMEGA0 = np.array([0, 0, 0])
 
+# Visualization constants
+FPS = 60
+
 # State variables
 thrust = np.array([0, 0, EDF_THRUST])
 state = np.zeros((NUM_STEPS, 16))
@@ -53,7 +56,6 @@ def state_dot(t, state):
     state_dot = np.empty((13)) # [x, y, z, vx, vy, vz, qw, qx, qy, qz, ox, oy, oz]
     state_dot[0:3] = velocity
     state_dot[3:6] = force / MASS
-    print('force: ', force)
 
     state_dot[6:10] = quaternion.as_float_array(0.5 * np.quaternion(0, *omega) * orientation)
     rotation_matrix = quaternion.as_rotation_matrix(orientation)
@@ -62,12 +64,16 @@ def state_dot(t, state):
 
     return state_dot
 
-def control_alg():
+def control_alg(acceleration, orientation, omega):
+    # print('Control Algo')
+    # print('acceleration =', acceleration)
+    # print('orientation =', orientation)
+    # print('omega =', omega)
     return np.array([0, 0, EDF_THRUST])
 
 for step in range(1, NUM_STEPS):
-    thrust = control_alg()
-    solution = integrate.solve_ivp(state_dot, (0, 1/CONTROL_FREQ), state[step - 1][:13])
+    # print(step)
+    acceleration = state_dot(step / CONTROL_FREQ, state[step - 1])[3:6]
+    thrust = control_alg(acceleration, state[step - 1][6:10], state[step - 1][10:13])
+    solution = integrate.solve_ivp(state_dot, (0, 1 / CONTROL_FREQ), state[step - 1][:13])
     state[step] = np.concatenate([solution.y.T[-1], thrust])
-    print(state[step])
-    print(step)

@@ -14,13 +14,13 @@ thrust_origin = np.array([0, 0, -0.5])
 tuning = 3, 0.5, 0.6
 pid_x = PID(*tuning, setpoint=0)
 pid_y = PID(*tuning, setpoint=0)
-thrust = np.array([0.02, -0.02, edf_force])
+thrust = np.array([0, 0, edf_force])
 
-def control_alg(acceleration): # reducing accuracy of provided data (adding noise to simulate IMU noise)
+def control_alg(quat): # reducing accuracy of provided data (adding noise to simulate IMU noise)
     # available: orientation, angular velocity, acceleration
     # mu, sigma = 0, 0.1
     # noise = np.random.normal(mu, sigma, (3))
-    quat = quaternion.as_float_array(orientation)
+    # quat = quaternion.as_float_array(orientation)
     control_x = pid_x(quat[1])
     control_y = pid_y(quat[2])
     # IDEA: use a quaternion to control orientation of thrust vector (which is of magnitude edf_forc
@@ -59,7 +59,7 @@ def sim(t, y):
 
 position0 = np.array([0, 0, 0])
 velocity0 = np.array([7, -15, -20])
-orientation0 = np.array([1, 0, 0, 0])
+orientation0 = np.array([1, 0.25, -0.5, 0])
 omega0 = np.array([0, 0, 0])
 
 t = 0
@@ -67,22 +67,23 @@ control_refresh = 1/500
 t_sim = 10
 
 state = np.array([*position0, *velocity0, *orientation0, *omega0])
-states = np.zeros((round(t_sim / control_refresh), 13))
+states = np.zeros((round(t_sim / control_refresh) + 1, 16))
 
 def update():
-    global state
-    global t
-    solution = solve_ivp(sim, (0, control_refresh), state)
+    global state, t, thrust, solution
+    thrust = control_alg(state[6:10])
+    solution = solve_ivp(sim, (0, control_refresh), state) # TODO: check diff integration methods
     state = solution.y.T[-1]
-    states[round(t / control_refresh)] = state
+    states[round(t / control_refresh)] = np.array([*state, *thrust])
     t += control_refresh
 
-while t < t_sim:
-    print('control!')
+while round(t, 6) <= t_sim:
+    # print('control!')
     update()
 
 # print(states)
-print(states[-1])
+print('sol: ', solution)
+print('state: ', states[-1])
 
 # print(solution[-1])
 # print(solution.y.T[-1])
@@ -108,22 +109,23 @@ scene.camera.follow(b)
 v = arrow(pos=vector(0, 0, 0), color=color.yellow)
 
 sleep(0.4)
+states = states[::10]
 for i, state in enumerate(states):
-    position, velocity, orientation, omega = np.split(state, [3, 6, 10]) # position, velocity, orientation, angular velocity
+    position, velocity, orientation, omega, thrust = np.split(state, [3, 6, 10, 13]) # position, velocity, orientation, angular velocity
     orientation = quaternion.from_float_array(orientation)
-
-    # scene.title = f't={round(i * scale_factor * dt, 2)}s<br>position: {np.array_str(position, precision=3)}<br>velocity: {np.array_str(velocity, precision=3)}<br>orientation: {orientation}<br>thrust: {np.array_str(thrust, precision=3)}'
+    rot_thrust = quaternion.rotate_vectors(orientation, thrust)
+    scene.title = f't={round(i * 10 * control_refresh, 2)}s<br>position: {np.array_str(position, precision=3)}<br>velocity: {np.array_str(velocity, precision=3)}<br>orientation: {orientation}<br>thrust: {np.array_str(thrust, precision=3)}'
 
     up = quaternion.rotate_vectors(orientation, np.array([0, 0, 1]))
     b.pos = vector(*position)
     b.up = vector(*up)
-    # v.pos = vector(*(position + quaternion.rotate_vectors(orientation, thrust_origin)))
+    v.pos = vector(*(position + quaternion.rotate_vectors(orientation, thrust_origin)))
     # v.up = vector(*up) # TODO: set vector to one perpendicular to the axis in the direction closest to the box
-    # v.axis = vector(*-rot_thrust / np.linalg.norm(rot_thrust) * 1.5)
+    v.axis = vector(*-rot_thrust / np.linalg.norm(rot_thrust) * 1.5)
     sleep(0.000001)
 
 """
-Sample simulation: (parameters consistent)
+Sample simulation w/out control: (parameters consistent)
 
 Separated integration with control refresh of 200 Hz
 [-6.06134090e+00  3.93523367e+01 -1.85370168e+01  4.33912445e+00

@@ -1,6 +1,7 @@
 import numpy as np
 import quaternion
 from scipy import integrate
+from scipy import interpolate
 from scipy.spatial.transform import Rotation as R
 from vpython import *
 import matplotlib.pyplot as plt
@@ -41,6 +42,8 @@ FPS = 60
 # State variables
 thrust = np.array([0, 0, EDF_THRUST])
 state = np.zeros((NUM_STEPS, 16))
+
+# Initialize state
 state[0][0:13] = np.array([*POSITION0, *VELOCITY0, *ORIENTATION0, *OMEGA0])
 
 def state_dot(t, state):
@@ -77,3 +80,7 @@ for step in range(1, NUM_STEPS):
     thrust = control_alg(acceleration, state[step - 1][6:10], state[step - 1][10:13])
     solution = integrate.solve_ivp(state_dot, (0, 1 / CONTROL_FREQ), state[step - 1][:13])
     state[step] = np.concatenate([solution.y.T[-1], thrust])
+
+# Visualization frames
+frames = interpolate.interp1d(np.arange(0, NUM_STEPS), state, axis=0)(np.linspace(0, NUM_STEPS - 1, FPS * SIM_TIME))
+# TODO: Refactor array operations in state_dot function

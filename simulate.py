@@ -1,3 +1,5 @@
+import threading
+import time
 import numpy as np
 import quaternion
 from scipy import integrate
@@ -44,10 +46,9 @@ thrust = np.array([0, 0, EDF_THRUST])
 state = np.zeros((NUM_STEPS, 16))
 
 # Initialize state
-# state[0] = np.array([*POSITION0, *VELOCITY0, *ORIENTATION0, *OMEGA0, *thrust])
-state[0][0:13] = np.array([*POSITION0, *VELOCITY0, *ORIENTATION0, *OMEGA0])
+state[0] = np.array([*POSITION0, *VELOCITY0, *ORIENTATION0, *OMEGA0, *thrust])
 
-print(f'Simulating {SIM_TIME} seconds with a control frequency of {CONTROL_FREQ} Hz and a visualization FPS of {FPS}.')
+print(f'Simulating {SIM_TIME} seconds with a control frequency of {CONTROL_FREQ} Hz and a visualization framerate of {FPS}.')
 
 def state_dot(t, state):
     velocity = state[3:6]
@@ -102,12 +103,13 @@ b = box(pos=vector(0, 0, 0), size=vector(1, 1, 1), color=color.blue, make_trail=
 v = arrow(pos=vector(0, 0, 0), color=color.yellow)
 scene.camera.follow(b)
 
-for i, frame in enumerate(frames):
-    position, velocity, orientation_float, omega, thrust = np.split(frame, [3, 6, 10, 13])
+for n in range(frames.shape[0]):
+    start = time.time_ns()
+    position, velocity, orientation_float, omega, thrust = np.split(frames[n], [3, 6, 10, 13])
     orientation = quaternion.from_float_array(orientation_float)
     rot_thrust = quaternion.rotate_vectors(orientation, thrust)
     scene.title = (
-        f't={round(i / FPS, 2)}s<br>'
+        f't={round(n / FPS, 2)}s<br>'
         f'position: {np.array_str(position, precision=3)}<br>'
         f'velocity: {np.array_str(velocity, precision=3)}<br>'
         f'orientation: {orientation}<br>'
@@ -120,10 +122,7 @@ for i, frame in enumerate(frames):
     b.up = vector(*up)
     v.pos = vector(*(position + quaternion.rotate_vectors(orientation, THRUST_ORIGIN)))
     # v.up = vector(*up) # TODO: set vector to one perpendicular to the axis in the direction closest to the box
-    print(rot_thrust)
-    print(np.linalg.norm(rot_thrust))
     length = np.linalg.norm(rot_thrust)
-    thrust_axis = -rot_thrust / length * 1.5 if length > 0 else [0, 0, 0]
+    thrust_axis = -rot_thrust / length * 1.5 if length > 0 else (0, 0, 0)
     v.axis = vector(*thrust_axis)
-    # sleep(0.016667)
-    sleep(10)
+    time.sleep((1 / FPS - (time.time_ns() - start) / 1e9) * 0.90568) # Correction factor for visualization speed

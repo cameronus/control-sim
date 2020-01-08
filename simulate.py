@@ -27,7 +27,7 @@ FLUID_DENSITY = 1.225 # kg/m^3
 
 # Control constants
 CONTROL_FREQ = 200 # Hz
-PID_TUNING = (2, 0.4, 0.4) # P, I, D
+PID_TUNING = (2, 0.4, 0.2) # P, I, D
 VECTORING_BOUNDS = (-15, 15) # degrees
 
 # Simulation constants
@@ -35,7 +35,7 @@ SIM_TIME = 10 # seconds
 NUM_STEPS = round(SIM_TIME * CONTROL_FREQ) + 1
 POSITION0 = np.array([0, 0, 0])
 VELOCITY0 = np.array([0, 0, 0])
-ORIENTATION0 = np.array([1, 0, 0, 0])
+ORIENTATION0 = np.array([1, -0.3, 0, 0])
 OMEGA0 = np.array([0, 0, 0])
 
 # Visualization constants
@@ -48,12 +48,18 @@ state = np.zeros((NUM_STEPS, 16))
 # Initialize state
 state[0] = np.array([*POSITION0, *VELOCITY0, *ORIENTATION0, *OMEGA0, *thrust])
 
+# Initialize control
+pid_x = PID(*PID_TUNING, setpoint=0)
+pid_y = PID(*PID_TUNING, setpoint=0)
+pid_x.output_limits = VECTORING_BOUNDS
+pid_y.output_limits = VECTORING_BOUNDS
+
 print(f'Simulating {SIM_TIME} seconds with a control frequency of {CONTROL_FREQ} Hz and a visualization framerate of {FPS}.')
 
 def state_dot(t, state):
     velocity = state[3:6]
     orientation = quaternion.from_float_array(state[6:10])
-    omega = state[10:13]
+    omega = state[10:]
 
     drag = 0.5 * FLUID_DENSITY * DRAG_COEFF * AREA * (velocity - WIND) * np.absolute(velocity - WIND)
 
@@ -67,19 +73,21 @@ def state_dot(t, state):
     state_dot[6:10] = quaternion.as_float_array(0.5 * np.quaternion(0, *omega) * orientation)
     rotation_matrix = quaternion.as_rotation_matrix(orientation)
     rot_inertia_tensor = np.asarray(rotation_matrix * INERTIA_TENSOR * np.transpose(rotation_matrix))
-    state_dot[10:13] = np.matmul(np.linalg.inv(rot_inertia_tensor), (torque - np.cross(omega, np.matmul(rot_inertia_tensor, omega))))
+    state_dot[10:] = np.matmul(np.linalg.inv(rot_inertia_tensor), (torque - np.cross(omega, np.matmul(rot_inertia_tensor, omega))))
 
     return state_dot
 
 def control_alg(acceleration, orientation, omega):
-    # print('Control Algo')
-    # print('acceleration =', acceleration)
-    # print('orientation =', orientation)
-    # print('omega =', omega)
-    return np.array([0, 0, EDF_THRUST])
+    euler = R.from_quat(orientation).as_euler('zyx', degrees=True)
+    euler[0] *= -1
+    euler[2] -= 180
+    euler[2] *= -1
+    angle_x = pid_x(euler[1])
+    angle_y = pid_y(euler[0])
+    return np.array([np.sin(-angle_x * np.pi / 180) * EDF_THRUST, np.sin(angle_y * np.pi / 180) * EDF_THRUST, np.sqrt(EDF_THRUST**2 - (np.sin(angle_x * np.pi / 180) * EDF_THRUST)**2 - (np.sin(angle_y * np.pi / 180) * EDF_THRUST)**2)])
 
 for step in range(1, NUM_STEPS):
-    acceleration = state_dot(step / CONTROL_FREQ, state[step - 1])[3:6]
+    acceleration = state_dot(step / CONTROL_FREQ, state[step - 1][:13])[3:6]
     thrust = control_alg(acceleration, state[step - 1][6:10], state[step - 1][10:13])
     solution = integrate.solve_ivp(state_dot, (0, 1 / CONTROL_FREQ), state[step - 1][:13])
     state[step] = np.concatenate([solution.y.T[-1], thrust])
@@ -108,21 +116,28 @@ for n in range(frames.shape[0]):
     position, velocity, orientation_float, omega, thrust = np.split(frames[n], [3, 6, 10, 13])
     orientation = quaternion.from_float_array(orientation_float)
     rot_thrust = quaternion.rotate_vectors(orientation, thrust)
+    euler = R.from_quat(orientation_float).as_euler('zyx', degrees=True)
+    euler[0] *= -1
+    euler[2] -= 180
+    euler[2] *= -1
     scene.title = (
         f't={round(n / FPS, 2)}s<br>'
         f'position: {np.array_str(position, precision=3)}<br>'
         f'velocity: {np.array_str(velocity, precision=3)}<br>'
         f'orientation: {orientation}<br>'
-        f'euler: {np.array_str(R.from_quat(orientation_float).as_euler("zyx", degrees=True), precision=0)}<br>'
+        f'euler: {np.array_str(euler, precision=0)}<br>'
         f'thrust: {np.array_str(thrust, precision=3)}'
     )
 
     up = quaternion.rotate_vectors(orientation, np.array([0, 0, 1]))
+    forward = quaternion.rotate_vectors(orientation, np.array([1, 0, 0]))
     b.pos = vector(*position)
     b.up = vector(*up)
+    b.axis = vector(*forward)
     v.pos = vector(*(position + quaternion.rotate_vectors(orientation, THRUST_ORIGIN)))
-    # v.up = vector(*up) # TODO: set vector to one perpendicular to the axis in the direction closest to the box
+    v.up = vector(*forward)
     length = np.linalg.norm(rot_thrust)
     thrust_axis = -rot_thrust / length * 1.5 if length > 0 else (0, 0, 0)
     v.axis = vector(*thrust_axis)
     time.sleep((1 / FPS - (time.time_ns() - start) / 1e9) * 0.90568) # Correction factor for visualization speed
+    # time.sleep(10)

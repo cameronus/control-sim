@@ -28,7 +28,7 @@ class Vehicle:
 
         self.pid_x = PID(*self.PID_TUNING, setpoint=0)
         self.pid_y = PID(*self.PID_TUNING, setpoint=0)
-        self.pid_z = PID(1, 0.5, 0.3, setpoint=0)
+        self.pid_z = PID(*self.PID_TUNING, setpoint=0)
         self.pid_x.output_limits = self.VECTORING_BOUNDS
         self.pid_y.output_limits = self.VECTORING_BOUNDS
         self.pid_z.output_limits = self.VECTORING_BOUNDS
@@ -48,13 +48,18 @@ class Vehicle:
         # vane_angles = np.array([15, 15, 15, 15])
         angle_x = self.pid_x(euler[1])
         angle_y = self.pid_y(euler[0])
-        angle_z = self.pid_z(euler[2])
+        abs_err = abs(0 - euler[2])
+        if abs_err < 180:
+            err = abs_err
+        else:
+            err = abs_err - 360
+        angle_z = self.pid_z(err)
         # angle_z = 0
 
         print(euler)
         print(angle_x, angle_y, angle_z)
 
-        vane_angles = np.array([-angle_y - angle_z, -angle_x + angle_z, angle_y - angle_z, angle_x + angle_z])
+        vane_angles = np.array([-angle_y - angle_z, -angle_x - angle_z, angle_y - angle_z, angle_x - angle_z])
 
         vane_vec = np.array([0, 0, thrust / 4])
         vane_force = np.zeros((4, 3))

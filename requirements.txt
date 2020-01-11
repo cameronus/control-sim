@@ -1,0 +1,7 @@
+matplotlib==3.1.2
+numba==0.46.0
+numpy==1.18.0
+numpy-quaternion==2019.12.11.22.25.52
+scipy==1.4.1
+simple-pid==0.2.4
+vpython==7.5.2

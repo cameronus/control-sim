@@ -1,6 +1,7 @@
 import numpy as np
 import quaternion
 from simple_pid import PID
+from scipy.spatial.transform import Rotation as R
 
 class Vehicle:
     def __init__(self):
@@ -21,36 +22,46 @@ class Vehicle:
         self.CONTROL_FREQ = 200 # Hz
         self.INITIAL_STATE = np.array([0, 0, 0, 0, 0])
         self.PID_TUNING = (2, 0.4, 0.2) # P, I, D
+        # self.VECTORING_BOUNDS = (-15, 15) # degrees
         self.VECTORING_BOUNDS = (-15, 15) # degrees
         self.VECTORING_SPEED = 30 # degrees per second
 
         self.pid_x = PID(*self.PID_TUNING, setpoint=0)
         self.pid_y = PID(*self.PID_TUNING, setpoint=0)
+        self.pid_z = PID(1, 0.5, 0.3, setpoint=0)
         self.pid_x.output_limits = self.VECTORING_BOUNDS
         self.pid_y.output_limits = self.VECTORING_BOUNDS
+        self.pid_z.output_limits = self.VECTORING_BOUNDS
 
     def update_setpoints(self):
         return np.array([0, 0, 0])
 
     def update_inputs(self, acceleration, orientation, omega):
-        # euler = R.from_quat(orientation).as_euler('zyx', degrees=True)
-        # euler[0] *= -1
-        # euler[2] -= 180
-        # euler[2] *= -1
-        # angle_x = pid_x(euler[1])
-        # angle_y = pid_y(euler[0])
-        #
-        # thrust = np.array([np.sin(-angle_x * np.pi / 180) * EDF_THRUST, np.sin(angle_y * np.pi / 180) * EDF_THRUST, np.sqrt(EDF_THRUST**2 - (np.sin(angle_x * np.pi / 180) * EDF_THRUST)**2 - (np.sin(angle_y * np.pi / 180) * EDF_THRUST)**2)])
+        euler = R.from_quat(orientation).as_euler('zyx', degrees=True)
+        euler[0] *= -1
+        euler[2] -= 180
+        euler[2] *= -1
+        orientation = quaternion.from_float_array(orientation)
 
-        # orientation = quaternion.from_float_array(orientation)
-
-        # control_force = quaternion.rotate_vectors(orientation, thrust)
-        # control_torque = np.cross(THRUST_ORIGIN, thrust)
-
-        # return thrust
-        # return np.array([15, 0, -15, 0, 0])
         setpoints = self.update_setpoints()
-        control_input = np.array([15, 0, -15, 0, self.EDF_THRUST])
-        force = np.array([0, 0, 0])
-        torque = np.array([0, 0, 0])
-        return control_input, force, torque
+        thrust = self.EDF_THRUST
+        # vane_angles = np.array([15, 15, 15, 15])
+        angle_x = self.pid_x(euler[1])
+        angle_y = self.pid_y(euler[0])
+        angle_z = self.pid_z(euler[2])
+        # angle_z = 0
+
+        print(euler)
+        print(angle_x, angle_y, angle_z)
+
+        vane_angles = np.array([-angle_y - angle_z, -angle_x + angle_z, angle_y - angle_z, angle_x + angle_z])
+
+        vane_vec = np.array([0, 0, thrust / 4])
+        vane_force = np.zeros((4, 3))
+        for i, deg in enumerate(vane_angles):
+            vane_force[i] = R.from_euler('y' if (i + 1) % 2 == 0 else 'x', deg if i < 2 else -deg, degrees=True).apply(vane_vec)
+        force = quaternion.rotate_vectors(orientation, np.sum(vane_force, axis=0))
+        torque = np.sum(np.cross(self.THRUST_ORIGINS, vane_force), axis=0)
+        torque.real[abs(torque.real) < np.finfo(np.float).eps] = 0.0
+
+        return np.array([*vane_angles, thrust]), force, torque

@@ -37,17 +37,16 @@ class Visualizer:
             start = time.time_ns()
             position, velocity, orientation_float, omega, control_output = np.split(self.frames[n], [3, 6, 10, 13])
             orientation = quaternion.from_float_array(orientation_float)
-            rot_vec = -quaternion.rotate_vectors(orientation, np.array([0, 0, 1]))
             euler = R.from_quat(orientation_float).as_euler('zyx', degrees=True)
             euler[0] *= -1
             euler[2] -= 180
             euler[2] *= -1
-            scene.title = (
+            self.scene.title = (
                 f't={round(n / self.FPS, 2)}s<br>'
                 f'position: {np.array_str(position, precision=3)}<br>'
                 f'velocity: {np.array_str(velocity, precision=3)}<br>'
                 f'orientation: {orientation}<br>'
-                f'euler: {np.array_str(euler, precision=0)}<br>'
+                f'euler: {np.array_str(euler, precision=3)}<br>'
                 f'control_output: {np.array_str(control_output, precision=3)}'
             )
 
@@ -58,16 +57,10 @@ class Visualizer:
             self.b.axis = vector(*forward)
             for i, vec in enumerate([self.v1, self.v2, self.v3, self.v4]):
                 vec.pos = vector(*(position + quaternion.rotate_vectors(orientation, self.simulator.controller.THRUST_ORIGINS[i])))
-                # vec.up = vector(*forward)
+                vec.up = vector(*forward)
                 # length = np.linalg.norm(rot_thrust)
                 # thrust_axis = -rot_thrust / length if length > 0 else (0, 0, 0)
                 deg = control_output[i]
-                vec.axis = vector(*R.from_euler('y' if (i + 1) % 2 == 0 else 'x', deg if i < 2 else -deg, degrees=True).apply(rot_vec))
-
-            # v.pos = vector(*(position + quaternion.rotate_vectors(orientation, THRUST_ORIGIN)))
-            # v.up = vector(*forward)
-            # length = np.linalg.norm(rot_thrust)
-            # thrust_axis = -rot_thrust / length * 1.5 if length > 0 else (0, 0, 0)
-            # v.axis = vector(*thrust_axis)
-            time.sleep((1 / self.FPS - (time.time_ns() - start) / 1e9) * 0.90568) # Correction factor for visualization speed
-            # time.sleep(10)
+                vec.axis = vector(*-quaternion.rotate_vectors(orientation, R.from_euler('y' if (i + 1) % 2 == 0 else 'x', deg if i < 2 else -deg, degrees=True).apply(np.array([0, 0, 1]))))
+            # time.sleep((1 / self.FPS - (time.time_ns() - start) / 1e9) * 0.90568) # Correction factor for visualization speed
+            time.sleep(0.05)

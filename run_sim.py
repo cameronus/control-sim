@@ -7,7 +7,7 @@ SIM_TIME = 10
 
 POSITION0 = np.array([0, 0, 0])
 VELOCITY0 = np.array([0, 0, 0])
-ORIENTATION0 = np.array([1, -0.3, 0, 0])
+ORIENTATION0 = np.array([1, 0.5, -0.3, 0])
 OMEGA0 = np.array([0, 0, 0])
 
 def main():
@@ -16,5 +16,6 @@ def main():
     simulator.simulate()
     visualization = Visualizer(simulator=simulator)
     print(simulator.state)
+
 if __name__ == "__main__":
     main()

@@ -29,14 +29,16 @@ class Vehicle:
         self.pid_x = PID(*self.PID_TUNING, setpoint=0)
         self.pid_y = PID(*self.PID_TUNING, setpoint=0)
         self.pid_z = PID(*self.PID_TUNING, setpoint=0)
+        self.pid_thrust = PID(*self.PID_TUNING, setpoint=0)
         self.pid_x.output_limits = self.VECTORING_BOUNDS
         self.pid_y.output_limits = self.VECTORING_BOUNDS
         self.pid_z.output_limits = self.VECTORING_BOUNDS
+        self.pid_thrust.output_limits = (0, self.EDF_THRUST)
 
     def update_setpoints(self, t):
-        return np.array([0, 0, 44, self.EDF_THRUST * (t / 15)**(1/6)])
+        return np.array([0, 0, 44, 10])
 
-    def update_inputs(self, t, acceleration, orientation, omega):
+    def update_inputs(self, t, altitude, acceleration, orientation, omega):
         euler = R.from_quat(orientation).as_euler('zyx', degrees=True)
         euler[0] *= -1
         euler[2] -= 180
@@ -44,7 +46,7 @@ class Vehicle:
         orientation = quaternion.from_float_array(orientation)
 
         setpoints = self.update_setpoints(t)
-        self.pid_x.setpoint, self.pid_y.setpoint, self.pid_z.setpoint, thrust = setpoints
+        self.pid_x.setpoint, self.pid_y.setpoint, self.pid_z.setpoint, self.pid_thrust.setpoint = setpoints
         angle_x = self.pid_x(euler[1])
         angle_y = self.pid_y(euler[0])
         abs_err = abs(self.pid_z.setpoint - euler[2])
@@ -53,8 +55,11 @@ class Vehicle:
         else:
             err = abs_err - 360
         angle_z = self.pid_z(err)
-
-        # TODO: add height measurement, add noise to measurements, ground collision physics, throttle pid
+        thrust = self.pid_thrust(altitude)
+        print(altitude)
+        print(thrust)
+        print()
+        # TODO: add height measurement, add noise to measurements, ground collision physics, throttle pid, manually implementing PID
 
         # print(euler)
         # print(angle_x, angle_y, angle_z)

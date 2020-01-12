@@ -3,11 +3,11 @@ from simulator import Simulator
 from vehicle import Vehicle
 from visualization import Visualizer
 
-SIM_TIME = 10
+SIM_TIME = 15
 
 POSITION0 = np.array([0, 0, 0])
 VELOCITY0 = np.array([0, 0, 0])
-ORIENTATION0 = np.array([1, 0.5, -0.3, 0])
+ORIENTATION0 = np.array([1, 0.5, -0.4, 0.2])
 OMEGA0 = np.array([0, 0, 0])
 
 def main():

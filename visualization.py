@@ -62,5 +62,5 @@ class Visualizer:
                 # thrust_axis = -rot_thrust / length if length > 0 else (0, 0, 0)
                 deg = control_output[i]
                 vec.axis = vector(*-quaternion.rotate_vectors(orientation, R.from_euler('y' if (i + 1) % 2 == 0 else 'x', deg if i < 2 else -deg, degrees=True).apply(np.array([0, 0, 1]))))
-            # time.sleep((1 / self.FPS - (time.time_ns() - start) / 1e9) * 0.90568) # Correction factor for visualization speed
-            time.sleep(0.05)
+            time.sleep((1 / self.FPS - (time.time_ns() - start) / 1e9) * 0.90568) # Correction factor for visualization speed
+            # time.sleep(0.05)

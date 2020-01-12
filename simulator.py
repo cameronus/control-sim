@@ -47,7 +47,8 @@ class Simulator:
 
     def simulate(self):
         for step in range(1, self.NUM_STEPS):
-            acceleration = self.state_dot(step / self.controller.CONTROL_FREQ, self.state[step - 1][:13])[3:6]
-            control_input, self.control_force, self.control_torque = self.controller.update_inputs(acceleration, self.state[step - 1][6:10], self.state[step - 1][10:13])
+            t = step / self.controller.CONTROL_FREQ
+            acceleration = self.state_dot(t, self.state[step - 1][:13])[3:6]
+            control_input, self.control_force, self.control_torque = self.controller.update_inputs(t, acceleration, self.state[step - 1][6:10], self.state[step - 1][10:13])
             solution = integrate.solve_ivp(self.state_dot, (0, 1 / self.controller.CONTROL_FREQ), self.state[step - 1][:13])
             self.state[step] = np.concatenate([solution.y.T[-1], control_input])

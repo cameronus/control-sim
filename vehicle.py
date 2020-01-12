@@ -21,7 +21,7 @@ class Vehicle:
         # Control constants
         self.CONTROL_FREQ = 200 # Hz
         self.INITIAL_STATE = np.array([0, 0, 0, 0, 0])
-        self.PID_TUNING = (2, 0.4, 0.2) # P, I, D
+        self.PID_TUNING = (2.2, 0.6, 0.3) # P, I, D
         # self.VECTORING_BOUNDS = (-15, 15) # degrees
         self.VECTORING_BOUNDS = (-15, 15) # degrees
         self.VECTORING_SPEED = 30 # degrees per second
@@ -33,31 +33,31 @@ class Vehicle:
         self.pid_y.output_limits = self.VECTORING_BOUNDS
         self.pid_z.output_limits = self.VECTORING_BOUNDS
 
-    def update_setpoints(self):
-        return np.array([0, 0, 0])
+    def update_setpoints(self, t):
+        return np.array([0, 0, 44, self.EDF_THRUST * (t / 15)**(1/6)])
 
-    def update_inputs(self, acceleration, orientation, omega):
+    def update_inputs(self, t, acceleration, orientation, omega):
         euler = R.from_quat(orientation).as_euler('zyx', degrees=True)
         euler[0] *= -1
         euler[2] -= 180
         euler[2] *= -1
         orientation = quaternion.from_float_array(orientation)
 
-        setpoints = self.update_setpoints()
-        thrust = self.EDF_THRUST
-        # vane_angles = np.array([15, 15, 15, 15])
+        setpoints = self.update_setpoints(t)
+        self.pid_x.setpoint, self.pid_y.setpoint, self.pid_z.setpoint, thrust = setpoints
         angle_x = self.pid_x(euler[1])
         angle_y = self.pid_y(euler[0])
-        abs_err = abs(0 - euler[2])
+        abs_err = abs(self.pid_z.setpoint - euler[2])
         if abs_err < 180:
             err = abs_err
         else:
             err = abs_err - 360
         angle_z = self.pid_z(err)
-        # angle_z = 0
 
-        print(euler)
-        print(angle_x, angle_y, angle_z)
+        # TODO: add height measurement, add noise to measurements, ground collision physics, throttle pid
+
+        # print(euler)
+        # print(angle_x, angle_y, angle_z)
 
         vane_angles = np.array([-angle_y - angle_z, -angle_x - angle_z, angle_y - angle_z, angle_x - angle_z])
 

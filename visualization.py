@@ -46,8 +46,8 @@ class Visualizer:
             euler[0] *= -1
             euler[2] -= 180
             euler[2] *= -1
-            # data_capture.append(abs(44 - euler[2]) - (0 if abs(44 - euler[2]) < 180 else 360))
-            data_capture.append(position[2])
+            data_capture.append(abs(0 - euler[2]))
+            # data_capture.append(position[2])
             self.scene.title = (
                 f't={round(n / self.FPS, 2)}s<br>'
                 f'position: {np.array_str(position, precision=3)}<br>'

@@ -7,7 +7,7 @@ SIM_TIME = 10
 
 POSITION0 = np.array([0, 0, 0])
 VELOCITY0 = np.array([0, 0, 0])
-ORIENTATION0 = np.array([1, 0, 0, 0])
+ORIENTATION0 = np.array([1, 0.4, -0.2, 0])
 OMEGA0 = np.array([0, 0, 0])
 
 def main():

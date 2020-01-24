@@ -46,7 +46,8 @@ class Visualizer:
             euler[0] *= -1
             euler[2] -= 180
             euler[2] *= -1
-            data_capture.append(abs(44 - euler[2]) - (0 if abs(44 - euler[2]) < 180 else 360))
+            # data_capture.append(abs(44 - euler[2]) - (0 if abs(44 - euler[2]) < 180 else 360))
+            data_capture.append(position[2])
             self.scene.title = (
                 f't={round(n / self.FPS, 2)}s<br>'
                 f'position: {np.array_str(position, precision=3)}<br>'
@@ -73,5 +74,5 @@ class Visualizer:
             time.sleep((1 / self.FPS - (time.time_ns() - start) / 1e9) * 0.90568) # Correction factor for visualization speed
             # time.sleep(0.05)
         fig, ax = plt.subplots()
-        ax.plot(time_vec, data_capture)
+        ax.plot(self.simulator.SIM_TIME * time_vec / self.simulator.NUM_STEPS, data_capture)
         plt.show()
